@@ -71,7 +71,7 @@ def clientSocketHandler(conn, addr):
       
       message = "2|" + id + "|"
       message = message + (10 - len(message))*"0"
-      print(message)
+      if DEBUG: print(message)
       
       conn.sendall(message.encode())
       writeLog("2", id)
