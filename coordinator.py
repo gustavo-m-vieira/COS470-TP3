@@ -7,26 +7,31 @@ from threading import Thread, Lock
 
 DEBUG = False
 
-mutex = Lock()
+requestLock = Lock()
+criticalZoneLock = Lock()
+clientsLock = Lock()
 
 HOST = '127.0.0.1'
 PORT = 65432
 
 requests = []
 clients = {}
-inCriticalZone = -1
-
-def changeCriticalZone(id):
-  global inCriticalZone
-  inCriticalZone = int(id)
 
 def IOThreadHandler():
+  global requestLock
+  global clientsLock
+  
   while True:
     op=int(input("Digite:\n1 para imprimir fila de pedidos atual.\n2 para imprimir quantas vezes cada processo foi atendido.\n3 para encerrar a execução.\n"))
     if op==1:
-      print(requests)
+      requestLock.acquire()
+      print([id for id, requestId, conn in requests])
+      requestLock.release()
+      
     elif op==2:
+      clientsLock.acquire()
       print(clients)
+      clientsLock.release()
     elif op==3:
       os.abort()
 
@@ -39,8 +44,9 @@ def socketListener():
       Thread(target=clientSocketHandler, args=(conn,addr)).start()
 
 def clientSocketHandler(conn, addr):
-  global inCriticalZone
-  global mutex
+  global criticalZoneLock
+  global requestLock
+  global clientsLock
   
   while True:
     data = conn.recv(10)
@@ -52,46 +58,48 @@ def clientSocketHandler(conn, addr):
     [op, id, trash] = data.split("|")
     if DEBUG: print(f'Received {op}, {id}')
     
-    if (type(clients.get(id)) != int):
-      clients[id] = 0
     
-
+    
     if op == "1":
       requestId = int(datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[:-3])
       
-      mutex.acquire()
-      requests.append((int(id) , requestId))
+      requestLock.acquire()
+      requests.append((int(id) , requestId, conn))
       writeLog(op, id)
-      mutex.release()
+      requestLock.release()
+
+    if op == "3":
+      if DEBUG: print('RELEASE')
+      writeLog(op, id)
+      criticalZoneLock.release()
       
-      while (inCriticalZone != requestId):
-        pass
+  conn.close()
+
+def criticalZoneHandler():
+  global criticalZoneLock
+  global clientsLock
+  
+  while True:
+    if (len(requests) > 0):
+      criticalZoneLock.acquire()
+
+      id, requestId, conn = requests.pop(0)
       
-      if DEBUG: print(f"Dentro da area critica {id} {str(inCriticalZone)}")
+      if DEBUG: print(f"Dentro da area critica {id} - requestId {requestId}")
       
-      message = "2|" + id + "|"
+      message = "2|" + str(id) + "|"
       message = message + (10 - len(message))*"0"
       if DEBUG: print(message)
       
       conn.sendall(message.encode())
       writeLog("2", id)
-      clients[id] += 1
       
-    if op == "3":
-      if DEBUG: print('RELEASE')
-      writeLog(op, id)
-      changeCriticalZone(-1)
-      
-  conn.close()
+      clientsLock.acquire()
+      if (type(clients.get(id)) != int):
+        clients[id] = 0
 
-def criticalZoneHandler():
-  global inCriticalZone
-  
-  while True:
-    if (len(requests) > 0 and inCriticalZone == -1):
-      id, requestId = requests.pop(0)
-      
-      changeCriticalZone(requestId)
+      clients[id] += 1
+      clientsLock.release()
       
 
 def writeLog(op, id):
@@ -103,7 +111,7 @@ def writeLog(op, id):
   if (op == "3"):
     operation = "[R] Release - "
   
-  message = operation + id + ' - ' +  actualTime + "\n"
+  message = operation + str(id) + ' - ' +  actualTime + "\n"
   if DEBUG: print(message)
   
   with open("log.txt", "a") as f:
