@@ -71,6 +71,8 @@ def clientSocketHandler(conn, addr):
       
       message = "2|" + id + "|"
       message = message + (10 - len(message))*"0"
+      print(message)
+      
       conn.sendall(message.encode())
       writeLog("2", id)
       clients[id] += 1
@@ -108,6 +110,8 @@ def writeLog(op, id):
     f.write(message)
   
 def Coordinator():
+  print(f"My PID: {os.getpid()}")
+  
   Thread(target=IOThreadHandler).start()
   Thread(target=socketListener).start()
   Thread(target=criticalZoneHandler).start()
