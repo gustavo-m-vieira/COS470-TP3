@@ -1,9 +1,12 @@
 #imports
 import socket
 import time
+from datetime import datetime
 import os
-import numpy as np 
-from threading import Thread
+from threading import Thread, Lock
+import random
+
+mutex = Lock()
 
 HOST = '127.0.0.1'
 PORT = 65432
@@ -12,6 +15,9 @@ requests = []
 clients = {}
 inCriticalZone = -1
 
+def changeCriticalZone(id):
+  global inCriticalZone
+  inCriticalZone = int(id)
 
 def IOThreadHandler():
   while True:
@@ -33,6 +39,7 @@ def socketListener():
 
 def clientSocketHandler(conn, addr):
   global inCriticalZone
+  global mutex
   
   while True:
     data = conn.recv(10)
@@ -44,20 +51,22 @@ def clientSocketHandler(conn, addr):
     [op, id, trash] = data.split("|")
     print(f'Received {op}, {id}')
     
-    print(f"Received {clients}")
-    
-    print(f"Received {clients.get(id)}")
-    
     if (type(clients.get(id)) != int):
       clients[id] = 0
     
 
     if op == "1":
-      requests.append(int(id))
-      writeLog(op, id)
+      requestId = int(datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[:-3])
       
-      while (inCriticalZone != int(id)):
+      mutex.acquire()
+      requests.append((int(id) , requestId))
+      writeLog(op, id)
+      mutex.release()
+      
+      while (inCriticalZone != requestId):
         pass
+      
+      print(f"Dentro da area critica {id} {str(inCriticalZone)}")
       
       message = "2|" + id + "|"
       message = message + (10 - len(message))*"0"
@@ -66,8 +75,10 @@ def clientSocketHandler(conn, addr):
       clients[id] += 1
       
     if op == "3":
-      inCriticalZone = -1
+      print('RELEASE')
       writeLog(op, id)
+      changeCriticalZone(-1)
+      
   conn.close()
 
 def criticalZoneHandler():
@@ -75,11 +86,13 @@ def criticalZoneHandler():
   
   while True:
     if (len(requests) > 0 and inCriticalZone == -1):
-      inCriticalZone = requests[0]
-      requests.pop(0)
+      id, requestId = requests.pop(0)
+      
+      changeCriticalZone(requestId)
+      
 
 def writeLog(op, id):
-  actualTime = time.strftime('%H:%M:%S, ', time.localtime())
+  actualTime = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
   if (op == "1"):
     operation = "[R] Request - "
   if (op == "2"):
