@@ -32,14 +32,23 @@ def socketListener():
       Thread(target=clientSocketHandler, args=(conn,addr)).start()
 
 def clientSocketHandler(conn, addr):
+  global inCriticalZone
+  
   while True:
     data = conn.recv(10)
     if not data:
       break
-
-    op, id = data.decode().split("|")
     
-    if (type(clients[id]) != int):
+    data = data.decode()
+
+    [op, id, trash] = data.split("|")
+    print(f'Received {op}, {id}')
+    
+    print(f"Received {clients}")
+    
+    print(f"Received {clients.get(id)}")
+    
+    if (type(clients.get(id)) != int):
       clients[id] = 0
     
 
@@ -51,7 +60,8 @@ def clientSocketHandler(conn, addr):
         pass
       
       message = "2|" + id + "|"
-      conn.sendAll(message + (10 - len(message))*"0")
+      message = message + (10 - len(message))*"0"
+      conn.sendall(message.encode())
       writeLog("2", id)
       clients[id] += 1
       
@@ -61,6 +71,8 @@ def clientSocketHandler(conn, addr):
   conn.close()
 
 def criticalZoneHandler():
+  global inCriticalZone
+  
   while True:
     if (len(requests) > 0 and inCriticalZone == -1):
       inCriticalZone = requests[0]
