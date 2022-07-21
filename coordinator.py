@@ -4,7 +4,8 @@ import time
 from datetime import datetime
 import os
 from threading import Thread, Lock
-import random
+
+DEBUG = False
 
 mutex = Lock()
 
@@ -49,7 +50,7 @@ def clientSocketHandler(conn, addr):
     data = data.decode()
 
     [op, id, trash] = data.split("|")
-    print(f'Received {op}, {id}')
+    if DEBUG: print(f'Received {op}, {id}')
     
     if (type(clients.get(id)) != int):
       clients[id] = 0
@@ -66,7 +67,7 @@ def clientSocketHandler(conn, addr):
       while (inCriticalZone != requestId):
         pass
       
-      print(f"Dentro da area critica {id} {str(inCriticalZone)}")
+      if DEBUG: print(f"Dentro da area critica {id} {str(inCriticalZone)}")
       
       message = "2|" + id + "|"
       message = message + (10 - len(message))*"0"
@@ -75,7 +76,7 @@ def clientSocketHandler(conn, addr):
       clients[id] += 1
       
     if op == "3":
-      print('RELEASE')
+      if DEBUG: print('RELEASE')
       writeLog(op, id)
       changeCriticalZone(-1)
       
@@ -101,7 +102,7 @@ def writeLog(op, id):
     operation = "[R] Release - "
   
   message = operation + id + ' - ' +  actualTime + "\n"
-  print(message)
+  if DEBUG: print(message)
   
   with open("log.txt", "a") as f:
     f.write(message)
