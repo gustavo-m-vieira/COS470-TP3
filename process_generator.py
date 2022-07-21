@@ -40,9 +40,12 @@ def writeFile(id):
   with open("resultado.txt", "a") as f:
     f.write(message)
 
-n = int(input("Enter n: "))
-r = int(input("Enter r: "))
-k = int(input("Enter k: "))
+def ProcessGenerator(n,r,k):  
+  for i in range(n):
+    Thread(target=processHandler, args=(i,r,k)).start()
 
-for i in range(n):
-  Thread(target=processHandler, args=(i,r,k)).start()
+if __name__ == "__main__":
+  n = int(input("Enter n: "))
+  r = int(input("Enter r: "))
+  k = int(input("Enter k: "))
+  ProcessGenerator(n,r,k)

@@ -107,6 +107,10 @@ def writeLog(op, id):
   with open("log.txt", "a") as f:
     f.write(message)
   
-Thread(target=IOThreadHandler).start()
-Thread(target=socketListener).start()
-Thread(target=criticalZoneHandler).start()
+def Coordinator():
+  Thread(target=IOThreadHandler).start()
+  Thread(target=socketListener).start()
+  Thread(target=criticalZoneHandler).start()
+
+if __name__ == "__main__":
+  Coordinator()
