@@ -46,7 +46,6 @@ def socketListener():
 def clientSocketHandler(conn, addr):
   global criticalZoneLock
   global requestLock
-  global clientsLock
   
   while True:
     data = conn.recv(10)
@@ -78,12 +77,16 @@ def clientSocketHandler(conn, addr):
 def criticalZoneHandler():
   global criticalZoneLock
   global clientsLock
+  global requestLock
+
   
   while True:
     if (len(requests) > 0):
       criticalZoneLock.acquire()
 
+      requestLock.acquire()
       id, requestId, conn = requests.pop(0)
+      requestLock.release()
       
       if DEBUG: print(f"Dentro da area critica {id} - requestId {requestId}")
       
